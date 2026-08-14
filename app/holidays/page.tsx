@@ -1,0 +1,3 @@
+import type{Metadata}from'next';import HolidaysClient from './HolidaysClient'
+export const metadata:Metadata={title:'Major Public Holidays by Country and Year',description:'Browse a starter list of major nationwide holidays by country and year for the United States, UK, Canada, Pakistan, India, Saudi Arabia, UAE and Australia.',alternates:{canonical:'/holidays'}}
+export default function Page(){return <main style={{maxWidth:1000,margin:'0 auto',padding:'2rem 1rem'}}><h1>🎉 Worldwide Holidays</h1><p style={{color:'var(--text-secondary)'}}>Choose a country and year. Dates marked “estimated” may depend on official announcements or moon sighting.</p><HolidaysClient/></main>}
