@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: 'Chess Clock Online – Free Dual Timer for Two Players',
   description: 'A free online chess clock with mobile-friendly dual orientation, time presets (3+2, 5+0, 10+5, 15+10) and fullscreen mode. Perfect for blitz, rapid and classical games.',
   alternates: { canonical: `${SITE_URL}/chess-clock` },
+  openGraph: { url: `${SITE_URL}/chess-clock` },
 }
 
 const faqs = [
@@ -39,7 +40,7 @@ export default function ChessClockPage() {
         <p>
           A chess clock should not need an instruction manual. ZaynClock&apos;s chess clock gives you two big tap targets,
           one for each player, and rotates the top clock 180° so the player on the other side of the table reads their own
-          time right-side-up. Set a time control, then press one player’s clock to start the opponent’s time. After each move, the active player presses their own clock to stop it and start the opponent’s clock.
+          time right-side-up. Set a time control, then tap the player who moves first to start that player&apos;s time. After each move, the active player presses their own clock to stop it and start the opponent&apos;s clock.
         </p>
         <p>
           You get all the popular formats out of the box — 1+0 bullet, 3+2 and 5+0 blitz, 10+5 and 15+10 rapid, plus full

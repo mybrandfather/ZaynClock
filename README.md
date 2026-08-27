@@ -40,7 +40,7 @@ Do not upload old static sitemap or robots files into `public/`, because they wo
 The canonical origin is:
 
 ```text
-https://zaynclock.com
+https://www.zaynclock.com
 ```
 
 For Hostinger Passenger deployments, copy `deploy.htaccess` to `public_html/.htaccess` after confirming the account-specific Passenger paths. It forces HTTP and `www` traffic to the canonical HTTPS origin in one hop.

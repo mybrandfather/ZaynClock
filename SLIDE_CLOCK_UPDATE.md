@@ -29,4 +29,4 @@ Use:
 - Root directory: `./`
 - Build command: `npm run build`
 - Start command: `npm run start`
-- Environment variable: `NEXT_PUBLIC_SITE_URL=https://zaynclock.com`
+- Environment variable: `NEXT_PUBLIC_SITE_URL=https://www.zaynclock.com`

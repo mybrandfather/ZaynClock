@@ -19,7 +19,7 @@ coverage.
 2. Use Node.js 22.
 3. Build command: `npm run build`
 4. Start command: `npm run start`
-5. Set `NEXT_PUBLIC_SITE_URL=https://zaynclock.com`.
+5. Set `NEXT_PUBLIC_SITE_URL=https://www.zaynclock.com`.
 6. Confirm both `zaynclock.com` and `www.zaynclock.com` reach this same build,
    with `www` redirecting to the non-www canonical domain.
 
@@ -40,7 +40,7 @@ returning users—not only total page views.
 After deployment:
 
 1. Open Google Search Console.
-2. Submit `https://zaynclock.com/sitemap.xml`.
+2. Submit `https://www.zaynclock.com/sitemap.xml`.
 3. Inspect and request indexing for:
    - `/classroom-timer`
    - `/exam-timer`

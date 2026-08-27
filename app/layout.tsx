@@ -16,7 +16,7 @@ const share = Share_Tech_Mono({ subsets: ['latin'], weight: '400', variable: '--
 const vt323 = VT323({ subsets: ['latin'], weight: '400', variable: '--font-vt323', display: 'swap' })
 const audiowide = Audiowide({ subsets: ['latin'], weight: '400', variable: '--font-audiowide', display: 'swap' })
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zaynclock.com'
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.zaynclock.com').replace(/\/$/, '')
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -37,10 +37,20 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'ZaynClock',
     locale: 'en_US',
-    url: `${siteUrl}/`,
     images: [{ url: '/zaynclock-logo.png', alt: 'ZaynClock' }],
   },
   twitter: { card: 'summary_large_image', images: ['/zaynclock-logo.png'] },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

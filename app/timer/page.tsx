@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: 'Online Countdown Timer – Free, Beautiful & Fast',
   description: 'Free online countdown timer with hours, minutes and seconds. Perfect for cooking, study, workouts, meetings and any time-based task. Sound alerts, big display and zero clutter.',
   alternates: { canonical: `${SITE_URL}/timer` },
+  openGraph: { url: `${SITE_URL}/timer` },
 }
 
 const faqs = [

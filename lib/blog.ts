@@ -390,7 +390,7 @@ Cognitive science suggests that optimal focus periods vary by task type and indi
 
 ## How to Use ZaynClock's Study Clock
 
-1. Navigate to the **Study Clock** page
+1. Navigate to the [Study Clock](/study-clock) page
 2. Choose a session length: 25, 50, or 90 minutes — or enter a custom duration
 3. Select optional ambient sound (rain, white noise, or silence) to mask distractions
 4. Press Start and minimise all other windows
