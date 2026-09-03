@@ -21,7 +21,7 @@ coverage.
 4. Start command: `npm run start`
 5. Set `NEXT_PUBLIC_SITE_URL=https://www.zaynclock.com`.
 6. Confirm both `zaynclock.com` and `www.zaynclock.com` reach this same build,
-   with `www` redirecting to the non-www canonical domain.
+   with non-www `zaynclock.com` permanently redirecting to the `www` canonical domain.
 
 ## Connect measurement
 
