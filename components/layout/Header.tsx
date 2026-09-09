@@ -79,7 +79,7 @@ export default function Header() {
             <Link key={link.href} href={link.href} title={link.label} aria-label={link.label}
               className="nav-icon-link"
               style={{ width: 'auto', height: 36, padding: '0 0.65rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
-            >{link.label}</Link>
+            ><span aria-hidden="true" style={{ marginRight: '0.35rem' }}>{link.icon}</span>{link.label}</Link>
           ))}
         </nav>
 
