@@ -38,7 +38,7 @@ export default function HoursCalculatorPage() {
         <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', marginTop: '1.4rem' }}>Overnight shifts and decimal hours</h2>
         <p>If the end time is earlier than the start time, the calculator treats it as the next day. Decimal hours convert minutes into hundredths of an hour: 15 minutes is 0.25, 30 minutes is 0.50 and 45 minutes is 0.75.</p>
         <h2 style={{ color: 'var(--text-primary)', fontSize: '1.3rem', marginTop: '1.4rem' }}>Related work-hour tools</h2>
-        <p>To total several days and separate weekly overtime, use the <Link href="/time-card-calculator" style={{ color: 'var(--accent)' }}>time-card calculator</Link>. For a direct conversion, try the <Link href="/decimal-hours" style={{ color: 'var(--accent)' }}>decimal-hours converter</Link> or calculate deadlines with the <Link href="/business-days-calculator" style={{ color: 'var(--accent)' }}>business-days calculator</Link>.</p>
+        <p>To total several days, split shifts and weekly overtime, use the <Link href="/time-card-calculator" style={{ color: 'var(--accent)' }}>free time card calculator</Link>. Browse more <Link href="/work-tools" style={{ color: 'var(--accent)' }}>work-hour tools</Link> or calculate deadlines with the <Link href="/business-days-calculator" style={{ color: 'var(--accent)' }}>business-days calculator</Link>.</p>
       </section>
       <Faq items={faqs} />
     </main>

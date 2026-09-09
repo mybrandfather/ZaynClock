@@ -3,12 +3,12 @@
 import Link from 'next/link'
 
 const tools = [
-  { href: '/classroom-timer', icon: '🏫', label: 'Classroom Timer', desc: 'Teachers & students' },
-  { href: '/exam-timer', icon: '📝', label: 'Exam Timer', desc: 'Tests & reading time' },
-  { href: '/hours-calculator', icon: '➗', label: 'Hours Calculator', desc: 'Time between times' },
-  { href: '/time-card-calculator', icon: '🗓️', label: 'Time Card', desc: 'Weekly work hours' },
-  { href: '/meeting-timer', icon: '👥', label: 'Meeting Timer', desc: 'Time & cost' },
-  { href: '/study-clock', icon: '📚', label: 'Study Timer', desc: 'Focus sessions' },
+  { href: '/time-card-calculator', icon: '🗓️', label: 'Time Card Calculator', desc: 'Breaks, overtime & pay' },
+  { href: '/hours-calculator', icon: '➗', label: 'Hours Calculator', desc: 'Calculate hours worked' },
+  { href: '/week-number', icon: '🔢', label: 'Current Week Number', desc: 'ISO week & date range' },
+  { href: '/business-days-calculator', icon: '💼', label: 'Business Days', desc: 'Count working days' },
+  { href: '/date-calculator', icon: '📅', label: 'Date Calculator', desc: 'Add or subtract dates' },
+  { href: '/age-calculator', icon: '🎂', label: 'Age Calculator', desc: 'Exact age between dates' },
 ]
 
 export default function PopularTools() {
@@ -22,7 +22,7 @@ export default function PopularTools() {
         letterSpacing: '0.04em',
         textTransform: 'uppercase',
       }}>
-        🔥 Popular Tools
+        🔥 Popular Work &amp; Date Tools
       </h3>
       <div style={{
         display: 'grid',

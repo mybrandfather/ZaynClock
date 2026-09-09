@@ -6,22 +6,13 @@ import { usePreferences, COLOR_THEMES } from '@/hooks/usePreferences'
 import SettingsPanel from './SettingsPanel'
 
 const navLinks: { href: string; label: string; icon: string }[] = [
-  { href: '/',              label: 'Clock',         icon: '🕐' },
-  { href: '/timer',         label: 'Timer',         icon: '⏲️' },
-  { href: '/alarm',         label: 'Alarm',         icon: '⏰' },
-  { href: '/pomodoro',      label: 'Pomodoro',      icon: '🍅' },
-  { href: '/interval-timer', label: 'Interval Timer', icon: '🔁' },
-  { href: '/study-clock',   label: 'Study Clock',   icon: '📚' },
-  { href: '/education-tools', label: 'School Tools', icon: '🎓' },
-  { href: '/work-tools', label: 'Work Tools', icon: '💼' },
-  { href: '/stopwatch',     label: 'Stopwatch',     icon: '⏱️' },
-  { href: '/chess-clock',   label: 'Chess Clock',   icon: '♟️' },
-  { href: '/worldclock',    label: 'World Clock',   icon: '🌍' },
-  { href: '/converter',     label: 'Time Converter', icon: '🔄' },
-  { href: '/calendar',      label: 'Calendar',      icon: '📅' },
-  { href: '/date-calculator', label: 'Date Tools', icon: '🗓️' },
-  { href: '/todo',          label: 'Todo',          icon: '✅' },
-  { href: '/blog',          label: 'Blog',          icon: '📝' },
+  { href: '/', label: 'Clock', icon: '🕐' },
+  { href: '/timer', label: 'Timers', icon: '⏲️' },
+  { href: '/work-tools', label: 'Work Hours', icon: '💼' },
+  { href: '/date-calculator', label: 'Date & Calendar', icon: '🗓️' },
+  { href: '/education-tools', label: 'School & Focus', icon: '🎓' },
+  { href: '/worldclock', label: 'World Time', icon: '🌍' },
+  { href: '/tools', label: 'All Tools', icon: '🧰' },
 ]
 
 export default function Header() {
@@ -87,8 +78,8 @@ export default function Header() {
           {navLinks.map(link => (
             <Link key={link.href} href={link.href} title={link.label} aria-label={link.label}
               className="nav-icon-link"
-              style={{ width: 36, height: 36 }}
-            >{link.icon}</Link>
+              style={{ width: 'auto', height: 36, padding: '0 0.65rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+            ><span aria-hidden="true" style={{ marginRight: '0.35rem' }}>{link.icon}</span>{link.label}</Link>
           ))}
         </nav>
 
