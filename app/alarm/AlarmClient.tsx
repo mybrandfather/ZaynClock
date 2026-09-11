@@ -1,224 +1,246 @@
 'use client'
+
 import type { ChangeEvent } from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { usePreferences, type SoundPack } from '@/hooks/usePreferences'
-import { playSound, previewSound, stopPreviewSound, SOUND_PACKS, type PlayingSound } from '@/lib/sounds'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { SoundPack } from '@/hooks/usePreferences'
+import { usePreferences } from '@/hooks/usePreferences'
+import { playSound, previewSound, SOUND_PACKS, stopPreviewSound, type PlayingSound } from '@/lib/sounds'
+import styles from './alarm.module.css'
 
 interface Alarm {
   id: string
-  time: string // HH:MM
+  time: string
   label: string
   enabled: boolean
+  sound?: SoundPack
+  scheduledFor?: string
 }
 
 const STORE = 'zaynclock_alarms'
+const QUICK_ALARMS = [
+  { minutes: 5, label: '+5 min' }, { minutes: 10, label: '+10 min' },
+  { minutes: 15, label: '+15 min' }, { minutes: 30, label: '+30 min' },
+  { minutes: 60, label: '+1 hour' },
+]
 
-function chime() {
-  try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    ;[880, 660, 880].forEach((freq, i) => {
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.frequency.value = freq
-      o.type = 'sine'
-      o.connect(g); g.connect(ctx.destination)
-      const t = ctx.currentTime + i * 0.4
-      g.gain.setValueAtTime(0.001, t)
-      g.gain.exponentialRampToValueAtTime(0.3, t + 0.05)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
-      o.start(t); o.stop(t + 0.4)
-    })
-  } catch {}
+function formatInputTime(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function nextOccurrence(time: string, from = new Date()) {
+  const [hours, minutes] = time.split(':').map(Number)
+  const target = new Date(from)
+  target.setHours(hours, minutes, 0, 0)
+  if (target.getTime() <= from.getTime()) target.setDate(target.getDate() + 1)
+  return target
+}
+
+function alarmTarget(alarm: Alarm, now = new Date()) {
+  if (alarm.scheduledFor) {
+    const scheduled = new Date(alarm.scheduledFor)
+    if (!Number.isNaN(scheduled.getTime()) && scheduled.getTime() > now.getTime()) return scheduled
+  }
+  return nextOccurrence(alarm.time, now)
+}
+
+function formatAlarmTime(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(2000, 0, 1, hours, minutes))
+}
+
+function LiveClock() {
+  const [now, setNow] = useState<Date | null>(null)
+  useEffect(() => {
+    setNow(new Date())
+    const id = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+  return (
+    <div className={styles.liveClock} aria-live="off">
+      <time className={styles.liveTime} dateTime={now?.toISOString()}>
+        {now ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(now) : '--:--:-- --'}
+      </time>
+      <div className={styles.liveDate}>
+        {now ? new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(now) : 'Loading current date'}
+      </div>
+    </div>
+  )
+}
+
+function RingsIn({ alarm }: { alarm: Alarm }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+  const target = alarmTarget(alarm, new Date(now)).getTime()
+  const totalMinutes = Math.max(1, Math.ceil((target - now) / 60_000))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const parts = [days ? `${days} day${days === 1 ? '' : 's'}` : '', hours ? `${hours} hr` : '', minutes ? `${minutes} min` : ''].filter(Boolean)
+  return <span>Rings in {parts.join(' ') || 'less than a minute'}</span>
 }
 
 export default function AlarmClient() {
-  const {
-    prefs,
-    setSoundPack,
-    toggleSound,
-    setSoundVolume,
-    setCustomSound,
-  } = usePreferences()
+  const { prefs, setSoundPack, toggleSound, setSoundVolume, setCustomSound } = usePreferences()
   const [alarms, setAlarms] = useState<Alarm[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [time, setTime] = useState('07:00')
   const [label, setLabel] = useState('')
+  const [sound, setSound] = useState<SoundPack>(prefs.soundPack)
   const [ringing, setRinging] = useState<string | null>(null)
   const lastFired = useRef<Record<string, string>>({})
   const ringingSound = useRef<PlayingSound | null>(null)
-  const fileRef = useRef<HTMLInputElement | null>(null)
+  const soundFile = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const raw = localStorage.getItem(STORE)
-    if (raw) try { setAlarms(JSON.parse(raw)) } catch {}
+    if (raw) try {
+      const saved = JSON.parse(raw)
+      if (Array.isArray(saved)) setAlarms(saved)
+    } catch {}
+    setLoaded(true)
   }, [])
   useEffect(() => {
-    localStorage.setItem(STORE, JSON.stringify(alarms))
-  }, [alarms])
+    if (loaded) localStorage.setItem(STORE, JSON.stringify(alarms))
+  }, [alarms, loaded])
+  useEffect(() => () => {
+    ringingSound.current?.stop()
+    stopPreviewSound()
+  }, [])
 
-  useEffect(() => () => stopPreviewSound(), [])
-
-  // Tick: check every 5s
   useEffect(() => {
-    const id = setInterval(() => {
-      const d = new Date()
-      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-      const today = d.toDateString()
-      for (const a of alarms) {
-        if (!a.enabled || a.time !== hhmm) continue
-        const k = `${a.id}|${today}|${hhmm}`
-        if (lastFired.current[a.id] === k) continue
-        lastFired.current[a.id] = k
+    const checkAlarms = () => {
+      const now = new Date()
+      for (const alarm of alarms) {
+        if (!alarm.enabled) continue
+        const scheduled = alarm.scheduledFor ? new Date(alarm.scheduledFor).getTime() : null
+        const dueByTimestamp = scheduled !== null && !Number.isNaN(scheduled) && now.getTime() >= scheduled && now.getTime() - scheduled < 60_000
+        const dueByClock = !alarm.scheduledFor && alarm.time === formatInputTime(now)
+        if (!dueByTimestamp && !dueByClock) continue
+        const fireKey = alarm.scheduledFor || `${now.toDateString()}|${alarm.time}`
+        if (lastFired.current[alarm.id] === fireKey) continue
+        lastFired.current[alarm.id] = fireKey
         ringingSound.current?.stop()
-        if (prefs.soundEnabled) ringingSound.current = playSound(prefs.soundPack, prefs.soundVolume, prefs.customSoundDataUrl, true)
-        else chime()
-        setRinging(a.id)
-        try { new Notification(`⏰ ${a.label || 'Alarm'}`, { body: hhmm }) } catch {}
+        ringingSound.current = prefs.soundEnabled
+          ? playSound(alarm.sound || prefs.soundPack, prefs.soundVolume, prefs.customSoundDataUrl, true)
+          : null
+        setRinging(alarm.id)
+        setAlarms(current => current.map(item => item.id === alarm.id ? { ...item, scheduledFor: undefined } : item))
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(`Alarm: ${alarm.label || 'Alarm'}`, { body: formatAlarmTime(alarm.time) })
+        }
       }
-    }, 5000)
-    return () => clearInterval(id)
-  }, [alarms, prefs.soundEnabled, prefs.soundPack, prefs.soundVolume, prefs.customSoundDataUrl])
+    }
+    checkAlarms()
+    const id = window.setInterval(checkAlarms, 1000)
+    return () => window.clearInterval(id)
+  }, [alarms, prefs.customSoundDataUrl, prefs.soundEnabled, prefs.soundPack, prefs.soundVolume])
 
-  const add = () => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission().catch(() => {})
-    if (!time) return
-    setAlarms(p => [...p, { id: Math.random().toString(36).slice(2), time, label, enabled: true }])
+  const activeAlarm = useMemo(() => alarms.find(alarm => alarm.id === ringing), [alarms, ringing])
+  const requestNotifications = () => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') void Notification.requestPermission().catch(() => {})
+  }
+  const addAlarm = (alarmTime = time, scheduledFor?: Date, alarmLabel = label) => {
+    if (!alarmTime) return
+    requestNotifications()
+    const target = scheduledFor || nextOccurrence(alarmTime)
+    setAlarms(current => [...current, {
+      id: globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2),
+      time: alarmTime, label: alarmLabel.trim(), enabled: true, sound, scheduledFor: target.toISOString(),
+    }])
     setLabel('')
   }
-  const toggle = (id: string) => setAlarms(p => p.map(a => a.id === id ? { ...a, enabled: !a.enabled } : a))
-  const remove = (id: string) => setAlarms(p => p.filter(a => a.id !== id))
+  const addQuickAlarm = (minutes: number) => {
+    const target = new Date(Date.now() + minutes * 60_000)
+    const targetTime = formatInputTime(target)
+    setTime(targetTime)
+    addAlarm(targetTime, target, label || `${minutes}-minute alarm`)
+  }
+  const toggle = (id: string) => setAlarms(current => current.map(alarm => alarm.id === id ? { ...alarm, enabled: !alarm.enabled } : alarm))
+  const remove = (id: string) => {
+    if (ringing === id) { ringingSound.current?.stop(); ringingSound.current = null; setRinging(null) }
+    setAlarms(current => current.filter(alarm => alarm.id !== id))
+  }
   const dismiss = () => { ringingSound.current?.stop(); ringingSound.current = null; setRinging(null) }
   const snooze = (id: string) => {
-    const a = alarms.find(x => x.id === id)
-    if (!a) return
-    const d = new Date(Date.now() + 5 * 60_000)
-    const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    setAlarms(p => p.map(x => x.id === id ? { ...x, time: t } : x))
-    ringingSound.current?.stop()
-    ringingSound.current = null
-    setRinging(null)
+    const target = new Date(Date.now() + 5 * 60_000)
+    setAlarms(current => current.map(alarm => alarm.id === id ? { ...alarm, time: formatInputTime(target), enabled: true, scheduledFor: target.toISOString() } : alarm))
+    dismiss()
   }
-  const onSoundFile = (event: ChangeEvent<HTMLInputElement>) => {
+  const changeSound = (nextSound: SoundPack) => {
+    setSound(nextSound)
+    setSoundPack(nextSound)
+  }
+  const uploadSound = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
-    if (!file.type.startsWith('audio/')) return
-
+    if (!file?.type.startsWith('audio/')) return
     const reader = new FileReader()
-    reader.onload = () => setCustomSound(String(reader.result))
+    reader.onload = () => {
+      setCustomSound(String(reader.result))
+      setSound('custom')
+    }
     reader.readAsDataURL(file)
   }
 
   return (
-    <div>
-      {ringing && (() => {
-        const a = alarms.find(x => x.id === ringing)
-        if (!a) return null
-        return (
-          <div className="card" style={{ borderColor: 'var(--accent)', boxShadow: 'var(--glow)', marginBottom: '1.25rem', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--accent)', marginBottom: '0.5rem' }}>⏰ {a.time}</div>
-            <div style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>{a.label || 'Alarm'}</div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-              <button className="btn-primary" onClick={() => snooze(a.id)}>Snooze 5m</button>
-              <button className="btn-ghost" onClick={dismiss}>Dismiss</button>
-            </div>
-          </div>
-        )
-      })()}
-
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.75rem' }}>New alarm</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr auto', gap: '0.5rem' }}>
-          <input type="time" value={time} onChange={e => setTime(e.target.value)}
-            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '0.4rem', padding: '0.5rem 0.6rem', color: 'var(--text-primary)' }} />
-          <input type="text" value={label} onChange={e => setLabel(e.target.value)} placeholder="Label (optional)"
-            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '0.4rem', padding: '0.5rem 0.6rem', color: 'var(--text-primary)' }} />
-          <button className="btn-primary" onClick={add}>Add</button>
+    <div className={styles.tool}>
+      <LiveClock />
+      <section className={styles.setCard} aria-labelledby="set-alarm-heading">
+        <div className={styles.cardHeading}>
+          <div><span className={styles.eyebrow}>Alarm setup</span><h2 id="set-alarm-heading">Set Alarm</h2></div>
+          <span className={styles.savedNote}>Saved in this browser</span>
         </div>
-      </div>
-
-      <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(255,255,255,0.03))' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.85rem' }}>
-          <div>
-            <h3 style={{ fontWeight: 800, fontSize: '0.98rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Alarm sound</h3>
-            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
-              Choose a built-in tone or upload your own audio file. Custom sounds stay on this device.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={toggleSound}
-            aria-pressed={prefs.soundEnabled}
-            className={prefs.soundEnabled ? 'btn-primary' : 'btn-ghost'}
-            style={{ whiteSpace: 'nowrap', padding: '0.5rem 0.8rem' }}
-          >
+        <div className={styles.formGrid}>
+          <label className={styles.field}><span>Alarm time</span><input className={styles.timeInput} type="time" value={time} onChange={event => setTime(event.target.value)} required /></label>
+          <label className={styles.field}><span>Alarm label <small>(optional)</small></span><input type="text" value={label} onChange={event => setLabel(event.target.value)} placeholder="Morning Alarm" maxLength={60} /></label>
+          <label className={styles.field}><span>Alarm sound</span><select value={sound} onChange={event => changeSound(event.target.value as SoundPack)}>
+            {SOUND_PACKS.filter(option => option.value !== 'custom' || prefs.customSoundDataUrl).map(option => <option key={option.value} value={option.value}>{option.emoji} {option.label}</option>)}
+          </select></label>
+        </div>
+        <div className={styles.actions}>
+          <button type="button" className={styles.testButton} onClick={() => previewSound(sound, prefs.soundVolume, prefs.customSoundDataUrl)}>▶ Test Sound</button>
+          <button type="button" className={styles.setButton} onClick={() => addAlarm()}>Set Alarm</button>
+        </div>
+        <div className={styles.soundControls}>
+          <button type="button" className={styles.soundToggle} aria-pressed={prefs.soundEnabled} onClick={toggleSound}>
             {prefs.soundEnabled ? 'Sound on' : 'Sound off'}
           </button>
+          <label className={styles.volumeControl}>
+            <span>Volume {Math.round(prefs.soundVolume * 100)}%</span>
+            <input type="range" min={0} max={1} step={0.05} value={prefs.soundVolume} onChange={event => setSoundVolume(Number(event.target.value))} />
+          </label>
+          <input ref={soundFile} className="sr-only" type="file" accept="audio/*" onChange={uploadSound} aria-label="Upload custom alarm sound" />
+          <button type="button" className={styles.uploadButton} onClick={() => soundFile.current?.click()}>Upload sound</button>
+          {prefs.customSoundDataUrl && <button type="button" className={styles.removeSound} onClick={() => { setCustomSound(undefined); setSound('chime'); setSoundPack('chime') }}>Remove custom</button>}
         </div>
+        <div className={styles.quickSection}><span>Quick alarm</span><div className={styles.quickButtons}>
+          {QUICK_ALARMS.map(option => <button key={option.minutes} type="button" onClick={() => addQuickAlarm(option.minutes)}>{option.label}</button>)}
+        </div></div>
+      </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '0.6rem', alignItems: 'center', marginBottom: '0.8rem' }}>
-          <select
-            value={prefs.soundPack}
-            onChange={e => setSoundPack(e.target.value as SoundPack)}
-            aria-label="Alarm sound"
-            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '0.55rem', padding: '0.62rem 0.7rem', color: 'var(--text-primary)', width: '100%' }}
-          >
-            {SOUND_PACKS.map(sound => (
-              <option key={sound.value} value={sound.value}>{sound.emoji} {sound.label}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => previewSound(prefs.soundPack, prefs.soundVolume, prefs.customSoundDataUrl)}
-            style={{ padding: '0.58rem 0.85rem' }}
-          >
-            Test
-          </button>
-        </div>
-
-        <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-          Volume: {Math.round(prefs.soundVolume * 100)}%
-        </label>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={prefs.soundVolume}
-          onChange={e => setSoundVolume(Number(e.target.value))}
-          style={{ width: '100%', marginBottom: '0.8rem' }}
-        />
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
-          <button type="button" className="btn-ghost" onClick={() => fileRef.current?.click()}>
-            Upload custom sound
-          </button>
-          <input ref={fileRef} type="file" accept="audio/*" onChange={onSoundFile} style={{ display: 'none' }} />
-          {prefs.customSoundDataUrl && (
-            <>
-              <span style={{ color: 'var(--accent)', fontSize: '0.82rem' }}>Custom sound selected</span>
-              <button type="button" className="btn-ghost" onClick={() => setCustomSound(undefined)}>
-                Remove
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {alarms.length === 0 && <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '1rem' }}>No alarms yet.</p>}
-        {alarms.map(a => (
-          <div key={a.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', color: a.enabled ? 'var(--accent)' : 'var(--text-secondary)', minWidth: 80 }}>{a.time}</span>
-            <span style={{ flex: 1, color: 'var(--text-primary)' }}>{a.label || 'Alarm'}</span>
-            <button onClick={() => toggle(a.id)} aria-label="Toggle"
-              style={{ width: 44, height: 24, borderRadius: 12, background: a.enabled ? 'var(--accent)' : 'var(--border)', border: 'none', cursor: 'pointer', position: 'relative' }}>
-              <span style={{ position: 'absolute', top: 2, left: a.enabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
-            </button>
-            <button className="btn-ghost" onClick={() => remove(a.id)} aria-label="Delete">✕</button>
-          </div>
+      <section className={styles.alarmList} aria-labelledby="saved-alarms-heading">
+        <div className={styles.listHeading}><h2 id="saved-alarms-heading">Your Alarms</h2><span>{alarms.length} {alarms.length === 1 ? 'alarm' : 'alarms'}</span></div>
+        {loaded && alarms.length === 0 && <div className={styles.emptyState}><span aria-hidden="true">⏰</span><p>No alarms set yet.</p><small>Choose a time above or use a quick alarm.</small></div>}
+        {alarms.map(alarm => (
+          <article key={alarm.id} className={`${styles.alarmCard} ${alarm.enabled ? styles.active : styles.disabled}`}>
+            <div className={styles.statusDot} aria-hidden="true" />
+            <div className={styles.alarmDetails}><time className={styles.alarmTime}>{formatAlarmTime(alarm.time)}</time><strong>{alarm.label || 'Alarm'}</strong><small>{alarm.enabled ? <RingsIn alarm={alarm} /> : 'Alarm disabled'}</small></div>
+            <div className={styles.alarmControls}>
+              <button type="button" className={styles.toggle} role="switch" aria-checked={alarm.enabled} aria-label={`${alarm.enabled ? 'Disable' : 'Enable'} ${alarm.label || 'alarm'} at ${formatAlarmTime(alarm.time)}`} onClick={() => toggle(alarm.id)}><span /></button>
+              <button type="button" className={styles.deleteButton} onClick={() => remove(alarm.id)} aria-label={`Delete ${alarm.label || 'alarm'} at ${formatAlarmTime(alarm.time)}`}>Delete</button>
+            </div>
+          </article>
         ))}
-      </div>
+      </section>
+
+      {activeAlarm && <div className={styles.modalBackdrop} role="presentation"><section className={styles.ringingModal} role="alertdialog" aria-modal="true" aria-labelledby="ringing-title" aria-describedby="ringing-description">
+        <span className={styles.ringingIcon} aria-hidden="true">⏰</span><span className={styles.eyebrow}>Now ringing</span><h2 id="ringing-title">Alarm!</h2>
+        <p id="ringing-description" className={styles.ringingTime}>{formatAlarmTime(activeAlarm.time)}</p><strong>{activeAlarm.label || 'Alarm'}</strong>
+        <div className={styles.modalActions}><button type="button" className={styles.stopButton} onClick={dismiss} autoFocus>Stop Alarm</button><button type="button" className={styles.snoozeButton} onClick={() => snooze(activeAlarm.id)}>Snooze 5 Minutes</button></div>
+      </section></div>}
     </div>
   )
 }
