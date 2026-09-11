@@ -1,7 +1,8 @@
 'use client'
+import type { ChangeEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { usePreferences } from '@/hooks/usePreferences'
-import { playSound, type PlayingSound } from '@/lib/sounds'
+import { usePreferences, type SoundPack } from '@/hooks/usePreferences'
+import { playSound, previewSound, stopPreviewSound, SOUND_PACKS, type PlayingSound } from '@/lib/sounds'
 
 interface Alarm {
   id: string
@@ -31,13 +32,20 @@ function chime() {
 }
 
 export default function AlarmClient() {
-  const { prefs } = usePreferences()
+  const {
+    prefs,
+    setSoundPack,
+    toggleSound,
+    setSoundVolume,
+    setCustomSound,
+  } = usePreferences()
   const [alarms, setAlarms] = useState<Alarm[]>([])
   const [time, setTime] = useState('07:00')
   const [label, setLabel] = useState('')
   const [ringing, setRinging] = useState<string | null>(null)
   const lastFired = useRef<Record<string, string>>({})
   const ringingSound = useRef<PlayingSound | null>(null)
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const raw = localStorage.getItem(STORE)
@@ -46,6 +54,8 @@ export default function AlarmClient() {
   useEffect(() => {
     localStorage.setItem(STORE, JSON.stringify(alarms))
   }, [alarms])
+
+  useEffect(() => () => stopPreviewSound(), [])
 
   // Tick: check every 5s
   useEffect(() => {
@@ -87,6 +97,16 @@ export default function AlarmClient() {
     ringingSound.current = null
     setRinging(null)
   }
+  const onSoundFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('audio/')) return
+
+    const reader = new FileReader()
+    reader.onload = () => setCustomSound(String(reader.result))
+    reader.readAsDataURL(file)
+  }
 
   return (
     <div>
@@ -113,6 +133,75 @@ export default function AlarmClient() {
           <input type="text" value={label} onChange={e => setLabel(e.target.value)} placeholder="Label (optional)"
             style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '0.4rem', padding: '0.5rem 0.6rem', color: 'var(--text-primary)' }} />
           <button className="btn-primary" onClick={add}>Add</button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(255,255,255,0.03))' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', marginBottom: '0.85rem' }}>
+          <div>
+            <h3 style={{ fontWeight: 800, fontSize: '0.98rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>Alarm sound</h3>
+            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+              Choose a built-in tone or upload your own audio file. Custom sounds stay on this device.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleSound}
+            aria-pressed={prefs.soundEnabled}
+            className={prefs.soundEnabled ? 'btn-primary' : 'btn-ghost'}
+            style={{ whiteSpace: 'nowrap', padding: '0.5rem 0.8rem' }}
+          >
+            {prefs.soundEnabled ? 'Sound on' : 'Sound off'}
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '0.6rem', alignItems: 'center', marginBottom: '0.8rem' }}>
+          <select
+            value={prefs.soundPack}
+            onChange={e => setSoundPack(e.target.value as SoundPack)}
+            aria-label="Alarm sound"
+            style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: '0.55rem', padding: '0.62rem 0.7rem', color: 'var(--text-primary)', width: '100%' }}
+          >
+            {SOUND_PACKS.map(sound => (
+              <option key={sound.value} value={sound.value}>{sound.emoji} {sound.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => previewSound(prefs.soundPack, prefs.soundVolume, prefs.customSoundDataUrl)}
+            style={{ padding: '0.58rem 0.85rem' }}
+          >
+            Test
+          </button>
+        </div>
+
+        <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
+          Volume: {Math.round(prefs.soundVolume * 100)}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={prefs.soundVolume}
+          onChange={e => setSoundVolume(Number(e.target.value))}
+          style={{ width: '100%', marginBottom: '0.8rem' }}
+        />
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', alignItems: 'center' }}>
+          <button type="button" className="btn-ghost" onClick={() => fileRef.current?.click()}>
+            Upload custom sound
+          </button>
+          <input ref={fileRef} type="file" accept="audio/*" onChange={onSoundFile} style={{ display: 'none' }} />
+          {prefs.customSoundDataUrl && (
+            <>
+              <span style={{ color: 'var(--accent)', fontSize: '0.82rem' }}>Custom sound selected</span>
+              <button type="button" className="btn-ghost" onClick={() => setCustomSound(undefined)}>
+                Remove
+              </button>
+            </>
+          )}
         </div>
       </div>
 
