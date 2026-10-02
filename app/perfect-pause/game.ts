@@ -28,7 +28,7 @@ export function classifyPause(distance: number, objectSize: number, level: Level
 }
 
 export function getTrackMetrics(width: number, objectSize: number) {
-  const edgePadding = Math.max(20, width * 0.055)
+  const edgePadding = Math.max(44, width * 0.11)
   return {
     startCenter: -objectSize * 0.65,
     targetCenter: width - edgePadding - objectSize / 2,
